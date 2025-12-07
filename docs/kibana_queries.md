@@ -1,5 +1,8 @@
 # Kibana クエリ集
 
+# 参考文献
+https://www.elastic.co/docs/reference/query-languages/query-dsl/full-text-filter-tutorial
+
 ## 基本的なクエリ
 
 ### 1. 全件取得（match_all）
