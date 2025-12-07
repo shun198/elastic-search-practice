@@ -14,8 +14,6 @@ services:
       - discovery.seed_hosts=es02,es03
       - bootstrap.memory_lock=true
       - xpack.security.enabled=false
-      - xpack.license.self_generated.type=${LICENSE}
-      - xpack.ml.use_auto_machine_memory_percent=true
     mem_limit: ${MEM_LIMIT}
     ulimits:
       memlock:
@@ -44,8 +42,6 @@ services:
       - discovery.seed_hosts=es01,es03
       - bootstrap.memory_lock=true
       - xpack.security.enabled=false
-      - xpack.license.self_generated.type=${LICENSE}
-      - xpack.ml.use_auto_machine_memory_percent=true
     mem_limit: ${MEM_LIMIT}
     ulimits:
       memlock:
@@ -74,8 +70,6 @@ services:
       - discovery.seed_hosts=es01,es02
       - bootstrap.memory_lock=true
       - xpack.security.enabled=false
-      - xpack.license.self_generated.type=${LICENSE}
-      - xpack.ml.use_auto_machine_memory_percent=true
     mem_limit: ${MEM_LIMIT}
     ulimits:
       memlock:
