@@ -13,3 +13,6 @@ run = "docker compose up"
 
 [tasks.down]
 run = "docker compose down"
+
+[tasks.script]
+run = "uv run scripts/insert_sample_data.py"

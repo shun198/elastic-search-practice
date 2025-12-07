@@ -169,3 +169,63 @@ GET /sample-index/_mget
 }
 ```
 
+## 削除クエリ
+
+### 16. 特定IDのドキュメントを削除（ID=1を削除）
+```json
+DELETE /sample-index/_doc/1
+```
+
+### 17. クエリ条件に一致するドキュメントを削除（tag="demo"のドキュメントを削除）
+```json
+POST /sample-index/_delete_by_query
+{
+  "query": {
+    "term": {
+      "tag": "demo"
+    }
+  }
+}
+```
+
+### 18. titleで検索して削除（"Test1"を含むドキュメントを削除）
+```json
+POST /sample-index/_delete_by_query
+{
+  "query": {
+    "match": {
+      "title": "Test1"
+    }
+  }
+}
+```
+
+### 19. 全件削除（⚠️ 注意: インデックス内の全ドキュメントを削除）
+```json
+POST /sample-index/_delete_by_query
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+### 20. 複数IDを一度に削除
+```json
+POST /sample-index/_bulk
+{
+  "delete": { "_id": "1" }
+}
+{
+  "delete": { "_id": "2" }
+}
+{
+  "delete": { "_id": "3" }
+}
+```
+
+### 21. インデックス全体を削除（⚠️ 注意: インデックスごと削除）
+```json
+DELETE /sample-index
+```
+
