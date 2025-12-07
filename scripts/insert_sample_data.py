@@ -17,6 +17,8 @@ if not es.indices.exists(index=index):
     es.indices.create(index=index)
 
 for i, doc in enumerate(docs):
-    es.index(index=index, id=i+1, document=doc)
+    es.index(index=index, id=i + 1, document=doc)
 
-print("サンプルデータ投入完了! Kibana『Discover』で sample-index を選択して確認してください。")
+print(
+    "サンプルデータ投入完了! Kibana『Discover』で sample-index を選択して確認してください。"
+)
