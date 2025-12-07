@@ -5,10 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Insert Sample Data",
+            "name": "Insert Sample Data",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/scripts/insert_sample_data.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-v"
+            ],
             "console": "integratedTerminal",
             "justMyCode": false
         }
