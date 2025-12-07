@@ -1,15 +1,9 @@
 import os
 from elasticsearch import Elasticsearch
 
-ES_HOST = os.getenv("ES_HOST", "https://localhost:9200")
-ES_USER = os.getenv("ES_USER", "elastic")
-ES_PASS = os.getenv("ELASTIC_PASSWORD", "changeme")  # .envと合わせる
+ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
 
-es = Elasticsearch(
-    ES_HOST,
-    basic_auth=(ES_USER, ES_PASS),
-    verify_certs=False  # 開発環境用: 証明書検証を無効化（本番環境では非推奨）
-)
+es = Elasticsearch(ES_HOST)
 
 # サンプルデータ
 docs = [
