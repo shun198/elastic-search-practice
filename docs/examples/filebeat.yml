@@ -1,0 +1,11 @@
+# docs/examples/filebeat.yml — Filebeat サンプル
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/myapp/*.log
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+# Tip: ローカルで Logstash の myapp.conf を使う場合は、filebeat の出力先を tcp:5055 に切り替えることもできます（テスト目的）。

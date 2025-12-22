@@ -58,6 +58,7 @@ services:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
     ports:
       - "${LOGSTASH_PORT:-5044}:5044"
+      - "5055:5055"  # テスト用 TCP input (myapp.conf)
     mem_limit: ${MEM_LIMIT:-1g}
 
 volumes:
