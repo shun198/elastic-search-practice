@@ -17,6 +17,9 @@ run = "docker compose down"
 [tasks.script]
 run = "uv run scripts/insert_sample_data.py"
 
+[tasks.seed]
+run = "uv run scripts/seed_bulk_data.py --index-count 5 --docs-per-index 100"
+
 [tasks.test]
 run = "uv run pytest"
 
