@@ -15,9 +15,19 @@ mise run script
 mise run seed
 ```
 
-必要に応じて件数を変更したい場合:
+このコマンドで次を自動実行します:
+- `practice-logs-1` 〜 `practice-logs-5` を作成
+- 各インデックスに100件（合計500件）投入
+- Kibana Data view `Practice Logs` を `practice-logs-*` で自動作成
+
+必要に応じて件数やパターンを変更したい場合:
 ```bash
-uv run scripts/seed_bulk_data.py --index-count 5 --docs-per-index 100 --reset
+uv run scripts/seed_bulk_data.py \
+  --index-prefix practice-logs \
+  --index-count 5 \
+  --docs-per-index 100 \
+  --data-view-name "Practice Logs" \
+  --reset
 ```
 
 ## テストの実行

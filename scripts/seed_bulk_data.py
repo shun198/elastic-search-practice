@@ -1,14 +1,20 @@
 import argparse
+import json
 import os
+from datetime import UTC, datetime, timedelta
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from collections.abc import Iterable
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 
 ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
-DEFAULT_INDEX_PREFIX = "sample-index"
+KIBANA_HOST = os.getenv("KIBANA_HOST", "http://localhost:5601")
+DEFAULT_INDEX_PREFIX = "practice-logs"
 DEFAULT_INDEX_COUNT = 5
 DEFAULT_DOCS_PER_INDEX = 100
+DEFAULT_DATA_VIEW_NAME = "Practice Logs"
 
 TAGS = ["demo", "tutorial", "guide", "kibana", "elasticsearch"]
 CATEGORIES = ["app", "infra", "analytics"]
@@ -40,10 +46,21 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Delete existing target indices before inserting documents.",
     )
+    parser.add_argument(
+        "--data-view-name",
+        default=DEFAULT_DATA_VIEW_NAME,
+        help=f"Kibana Data view name (default: {DEFAULT_DATA_VIEW_NAME})",
+    )
+    parser.add_argument(
+        "--skip-data-view",
+        action="store_true",
+        help="Skip Kibana Data view auto-creation.",
+    )
     return parser.parse_args()
 
 
 def build_actions(index_name: str, docs_per_index: int) -> Iterable[dict]:
+    now = datetime.now(UTC)
     for doc_id in range(1, docs_per_index + 1):
         tag = TAGS[(doc_id - 1) % len(TAGS)]
         category = CATEGORIES[(doc_id - 1) % len(CATEGORIES)]
@@ -59,6 +76,7 @@ def build_actions(index_name: str, docs_per_index: int) -> Iterable[dict]:
                 "tag": tag,
                 "category": category,
                 "doc_number": doc_id,
+                "@timestamp": (now - timedelta(minutes=doc_id)).isoformat(),
             },
         }
 
@@ -68,6 +86,39 @@ def validate_args(index_count: int, docs_per_index: int) -> None:
         raise ValueError("--index-count must be greater than 0.")
     if docs_per_index <= 0:
         raise ValueError("--docs-per-index must be greater than 0.")
+
+
+def create_data_view(data_view_name: str, index_pattern: str) -> None:
+    endpoint = f"{KIBANA_HOST}/api/data_views/data_view"
+    payload = {
+        "data_view": {
+            "name": data_view_name,
+            "title": index_pattern,
+            "timeFieldName": "@timestamp",
+        }
+    }
+    request = Request(
+        f"{endpoint}?override=true",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "kbn-xsrf": "true"},
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=10):
+            print(
+                f"Created/updated Kibana Data view: {data_view_name} "
+                f"(pattern: {index_pattern})"
+            )
+    except HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"Failed to create Kibana Data view: {error.code} {body}"
+        ) from error
+    except URLError as error:
+        raise RuntimeError(
+            f"Kibana is not reachable for Data view creation: {KIBANA_HOST}"
+        ) from error
 
 
 def main() -> None:
@@ -98,6 +149,9 @@ def main() -> None:
         f"Completed: {args.index_count} indices, total {total_docs} docs "
         f"(ES host: {ES_HOST})"
     )
+
+    if not args.skip_data_view:
+        create_data_view(args.data_view_name, f"{args.index_prefix}-*")
 
 
 if __name__ == "__main__":

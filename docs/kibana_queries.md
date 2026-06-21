@@ -1,5 +1,10 @@
 # Kibana クエリ集
 
+## 練習用インデックス
+- `mise run seed` で `practice-logs-1` 〜 `practice-logs-5` を作成します
+- Kibana Data view は `Practice Logs`（index pattern: `practice-logs-*`）が自動作成されます
+- このドキュメントのクエリ例は `practice-logs-1` を対象にしています
+
 # 参考文献
 https://www.elastic.co/docs/reference/query-languages/query-dsl/full-text-filter-tutorial
 
@@ -7,7 +12,7 @@ https://www.elastic.co/docs/reference/query-languages/query-dsl/full-text-filter
 
 ### 1. 全件取得（match_all）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "query": {
     "match_all": {}
@@ -17,7 +22,7 @@ GET /sample-index/_search
 
 ### 2. 件数制限付き（最初の10件）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "size": 10,
   "query": {
@@ -28,7 +33,7 @@ GET /sample-index/_search
 
 ### 3. 特定のフィールドのみ取得
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "_source": ["title", "tag"],
   "query": {
@@ -41,7 +46,7 @@ GET /sample-index/_search
 
 ### 4. titleで検索（"Test1"を含む）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "query": {
     "match": {
@@ -53,7 +58,7 @@ GET /sample-index/_search
 
 ### 5. bodyで全文検索（"Kibana"を含む）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "query": {
     "match": {
@@ -65,7 +70,7 @@ GET /sample-index/_search
 
 ### 6. tagで検索（"demo"タグのドキュメント）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "query": {
     "term": {
@@ -77,7 +82,7 @@ GET /sample-index/_search
 
 ### 7. 複数条件（AND検索）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "query": {
     "bool": {
@@ -92,7 +97,7 @@ GET /sample-index/_search
 
 ### 8. いずれかの条件（OR検索）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "query": {
     "bool": {
@@ -110,7 +115,7 @@ GET /sample-index/_search
 
 ### 9. tagごとの件数を集計
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "size": 0,
   "aggs": {
@@ -125,7 +130,7 @@ GET /sample-index/_search
 
 ### 10. ソート（titleで昇順）
 ```json
-GET /sample-index/_search
+GET /practice-logs-1/_search
 {
   "query": {
     "match_all": {}
@@ -144,29 +149,29 @@ GET /sample-index/_search
 
 ### 11. インデックスのマッピング確認
 ```json
-GET /sample-index/_mapping
+GET /practice-logs-1/_mapping
 ```
 
 ### 12. インデックスの統計情報
 ```json
-GET /sample-index/_stats
+GET /practice-logs-1/_stats
 ```
 
 ### 13. ドキュメント件数
 ```json
-GET /sample-index/_count
+GET /practice-logs-1/_count
 ```
 
 ## 特定IDの取得
 
 ### 14. ID=1のドキュメントを取得
 ```json
-GET /sample-index/_doc/1
+GET /practice-logs-1/_doc/1
 ```
 
 ### 15. 複数IDを一度に取得
 ```json
-GET /sample-index/_mget
+GET /practice-logs-1/_mget
 {
   "ids": ["1", "2", "3"]
 }
@@ -176,7 +181,7 @@ GET /sample-index/_mget
 
 ### 16. 新規ドキュメントを追加（IDを自動生成）
 ```json
-POST /sample-index/_doc
+POST /practice-logs-1/_doc
 {
   "title": "New Document",
   "body": "新規追加されたドキュメントです",
@@ -186,7 +191,7 @@ POST /sample-index/_doc
 
 ### 17. 指定IDでドキュメントを追加/更新（ID=4を追加、既存なら更新）
 ```json
-PUT /sample-index/_doc/4
+PUT /practice-logs-1/_doc/4
 {
   "title": "Updated Document",
   "body": "更新されたドキュメントです",
@@ -196,7 +201,7 @@ PUT /sample-index/_doc/4
 
 ### 18. 部分更新（ID=1のtitleのみ更新）
 ```json
-POST /sample-index/_update/1
+POST /practice-logs-1/_update/1
 {
   "doc": {
     "title": "Updated Title"
@@ -206,7 +211,7 @@ POST /sample-index/_update/1
 
 ### 19. スクリプトを使った更新（ID=1のtagを"updated"に変更）
 ```json
-POST /sample-index/_update/1
+POST /practice-logs-1/_update/1
 {
   "script": {
     "source": "ctx._source.tag = 'updated'"
@@ -216,7 +221,7 @@ POST /sample-index/_update/1
 
 ### 20. 条件付き更新（tagが"demo"の場合のみtitleを更新）
 ```json
-POST /sample-index/_update/1
+POST /practice-logs-1/_update/1
 {
   "script": {
     "source": "if (ctx._source.tag == 'demo') { ctx._source.title = 'Conditional Update' }"
@@ -226,7 +231,7 @@ POST /sample-index/_update/1
 
 ### 21. 複数ドキュメントを一括追加（bulk）
 ```json
-POST /sample-index/_bulk
+POST /practice-logs-1/_bulk
 { "index": { "_id": "10" } }
 { "title": "Bulk Doc 1", "body": "一括追加1", "tag": "bulk" }
 { "index": { "_id": "11" } }
@@ -237,7 +242,7 @@ POST /sample-index/_bulk
 
 ### 22. 複数ドキュメントを一括更新（bulk）
 ```json
-POST /sample-index/_bulk
+POST /practice-logs-1/_bulk
 { "update": { "_id": "1" } }
 { "doc": { "title": "Updated Title 1", "tag": "bulk-updated" } }
 { "update": { "_id": "2" } }
@@ -246,7 +251,7 @@ POST /sample-index/_bulk
 
 ### 23. upsert（存在しない場合は追加、存在する場合は更新）
 ```json
-POST /sample-index/_update/5
+POST /practice-logs-1/_update/5
 {
   "doc": {
     "title": "Upsert Document",
@@ -261,12 +266,12 @@ POST /sample-index/_update/5
 
 ### 24. 特定IDのドキュメントを削除（ID=1を削除）
 ```json
-DELETE /sample-index/_doc/1
+DELETE /practice-logs-1/_doc/1
 ```
 
 ### 25. クエリ条件に一致するドキュメントを削除（tag="demo"のドキュメントを削除）
 ```json
-POST /sample-index/_delete_by_query
+POST /practice-logs-1/_delete_by_query
 {
   "query": {
     "term": {
@@ -278,7 +283,7 @@ POST /sample-index/_delete_by_query
 
 ### 26. titleで検索して削除（"Test1"を含むドキュメントを削除）
 ```json
-POST /sample-index/_delete_by_query
+POST /practice-logs-1/_delete_by_query
 {
   "query": {
     "match": {
@@ -290,7 +295,7 @@ POST /sample-index/_delete_by_query
 
 ### 27. 全件削除（⚠️ 注意: インデックス内の全ドキュメントを削除）
 ```json
-POST /sample-index/_delete_by_query
+POST /practice-logs-1/_delete_by_query
 {
   "query": {
     "match_all": {}
@@ -300,7 +305,7 @@ POST /sample-index/_delete_by_query
 
 ### 28. 複数IDを一度に削除
 ```json
-POST /sample-index/_bulk
+POST /practice-logs-1/_bulk
 {
   "delete": { "_id": "1" }
 }
@@ -314,6 +319,6 @@ POST /sample-index/_bulk
 
 ### 29. インデックス全体を削除（⚠️ 注意: インデックスごと削除）
 ```json
-DELETE /sample-index
+DELETE /practice-logs-1
 ```
 
