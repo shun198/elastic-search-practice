@@ -1,9 +1,12 @@
 # Kibana クエリ集
 
 ## 練習用インデックス
-- `mise run seed` で `practice-logs-1` 〜 `practice-logs-5` を作成します
-- Kibana Data view は `Practice Logs`（index pattern: `practice-logs-*`）が自動作成されます
-- このドキュメントのクエリ例は `practice-logs-1` を対象にしています
+- `mise run seed` で `shoplane-prod-commerce-events-01` 〜 `05` を作成します
+- Kibana Data view は `Shoplane Commerce Events`（index pattern: `shoplane-prod-commerce-events-*`）が自動作成されます
+- 追加で `Shoplane User Profiles`（`shoplane-prod-user-profile-*`）と `Shoplane App Logs`（`shoplane-prod-app-logs-*`）も作成されます
+- さらに `Shoplane Cart In Events` / `Shoplane Purchase Events` / `Shoplane Search Events` も自動作成されます
+- このシードスクリプトは EC データ専用です
+- クエリ例の `practice-logs-1` は、実行時に利用中のインデックス（例: `shoplane-prod-commerce-events-01`）へ置き換えてください
 
 # 参考文献
 https://www.elastic.co/docs/reference/query-languages/query-dsl/full-text-filter-tutorial
@@ -141,6 +144,168 @@ GET /practice-logs-1/_search
         "order": "asc"
       }
     }
+  ]
+}
+```
+
+## 実践的なクエリ例（調査向け）
+
+### A. 直近30分のデータを新しい順で確認（多インデックス横断）
+```json
+POST /practice-logs-*/_search
+{
+  "size": 20,
+  "query": {
+    "range": {
+      "@timestamp": {
+        "gte": "now-30m",
+        "lt": "now"
+      }
+    }
+  },
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
+  ]
+}
+```
+
+### B. 複数条件の絞り込み（tag=demo かつ category=app）
+```json
+POST /practice-logs-*/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        { "term": { "tag": "demo" } },
+        { "term": { "category": "app" } }
+      ]
+    }
+  }
+}
+```
+
+### C. titleに特定キーワードを含むデータを検索
+```json
+POST /practice-logs-*/_search
+{
+  "query": {
+    "match": {
+      "title": "doc-10"
+    }
+  }
+}
+```
+
+### D. 特定フィールドだけ返して確認しやすくする
+```json
+POST /practice-logs-*/_search
+{
+  "_source": ["@timestamp", "title", "tag", "category"],
+  "size": 10,
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
+  ]
+}
+```
+
+### E. categoryごとに件数集計（運用での傾向把握向け）
+```json
+POST /practice-logs-*/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_category": {
+      "terms": {
+        "field": "category"
+      }
+    }
+  }
+}
+```
+
+### F. tag × category の組み合わせを集計
+```json
+POST /practice-logs-*/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_tag": {
+      "terms": { "field": "tag" },
+      "aggs": {
+        "by_category": {
+          "terms": { "field": "category" }
+        }
+      }
+    }
+  }
+}
+```
+
+### G. doc_number が存在するドキュメントだけ抽出
+```json
+POST /practice-logs-*/_search
+{
+  "query": {
+    "exists": {
+      "field": "doc_number"
+    }
+  }
+}
+```
+
+### H. 条件付き件数だけ確認（count API）
+```json
+GET /practice-logs-*/_count
+{
+  "query": {
+    "term": {
+      "tag": "kibana"
+    }
+  }
+}
+```
+
+### I. ユーザープロファイルを tier 別に集計
+```json
+GET /shoplane-prod-user-profile-*/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_tier": {
+      "terms": {
+        "field": "customer_tier"
+      }
+    }
+  }
+}
+```
+
+### J. アプリログで ERROR だけ確認
+```json
+GET /shoplane-prod-app-logs-*/_search
+{
+  "size": 50,
+  "query": {
+    "term": {
+      "level": "ERROR"
+    }
+  },
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
+  ]
+}
+```
+
+### K. トリガー別 Data view 相当の検索（purchase）
+```json
+GET /shoplane-commerce-purchase/_search
+{
+  "size": 20,
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
   ]
 }
 ```
