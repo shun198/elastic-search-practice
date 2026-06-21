@@ -1,160 +1,76 @@
-# Kibana クエリ集
+# Kibana クエリ集（EC実践版）
 
-## 練習用インデックス
-- `mise run seed` で `shoplane-prod-commerce-events-01` 〜 `05` を作成します
-- Kibana Data view は `Shoplane Commerce Events`（index pattern: `shoplane-prod-commerce-events-*`）が自動作成されます
-- 追加で `Shoplane User Profiles`（`shoplane-prod-user-profile-*`）と `Shoplane App Logs`（`shoplane-prod-app-logs-*`）も作成されます
-- さらに `Shoplane Cart In Events` / `Shoplane Purchase Events` / `Shoplane Search Events` も自動作成されます
-- このシードスクリプトは EC データ専用です
-- クエリ例の `practice-logs-1` は、実行時に利用中のインデックス（例: `shoplane-prod-commerce-events-01`）へ置き換えてください
+## 前提
+- `mise run seed` 実行後を前提にしています
+- 作成される主な Data view:
+  - `Shoplane Commerce Events` (`shoplane-prod-commerce-events-*`)
+  - `Shoplane User Profiles` (`shoplane-prod-user-profile-*`)
+  - `Shoplane App Logs` (`shoplane-prod-app-logs-*`)
+  - `Shoplane Cart In Events` (`shoplane-commerce-cart-in`)
+  - `Shoplane Purchase Events` (`shoplane-commerce-purchase`)
+  - `Shoplane Search Events` (`shoplane-commerce-search`)
 
-# 参考文献
-https://www.elastic.co/docs/reference/query-languages/query-dsl/full-text-filter-tutorial
+## 参考
+- https://www.elastic.co/docs/reference/query-languages/query-dsl/full-text-filter-tutorial
 
-## 基本的なクエリ
+## Commerce Events 基本
 
-### 1. 全件取得（match_all）
+### 1) 全件取得
 ```json
-GET /practice-logs-1/_search
+GET /shoplane-prod-commerce-events-01/_search
 {
-  "query": {
-    "match_all": {}
-  }
+  "query": { "match_all": {} }
 }
 ```
 
-### 2. 件数制限付き（最初の10件）
+### 2) 先頭10件
 ```json
-GET /practice-logs-1/_search
+GET /shoplane-prod-commerce-events-01/_search
 {
   "size": 10,
-  "query": {
-    "match_all": {}
-  }
+  "query": { "match_all": {} }
 }
 ```
 
-### 3. 特定のフィールドのみ取得
+### 3) 必要フィールドだけ取得
 ```json
-GET /practice-logs-1/_search
+GET /shoplane-prod-commerce-events-01/_search
 {
-  "_source": ["title", "tag"],
-  "query": {
-    "match_all": {}
-  }
+  "_source": ["@timestamp", "event_type", "service", "user_id", "cart_value_jpy"],
+  "query": { "match_all": {} },
+  "size": 10
 }
 ```
 
-## 検索クエリ
-
-### 4. titleで検索（"Test1"を含む）
+### 4) event_type で絞り込み（purchase）
 ```json
-GET /practice-logs-1/_search
+GET /shoplane-prod-commerce-events-01/_search
 {
   "query": {
-    "match": {
-      "title": "Test1"
-    }
+    "term": { "event_type": "purchase" }
   }
 }
 ```
 
-### 5. bodyで全文検索（"Kibana"を含む）
+### 5) service + status_code の複合条件
 ```json
-GET /practice-logs-1/_search
-{
-  "query": {
-    "match": {
-      "body": "Kibana"
-    }
-  }
-}
-```
-
-### 6. tagで検索（"demo"タグのドキュメント）
-```json
-GET /practice-logs-1/_search
-{
-  "query": {
-    "term": {
-      "tag": "demo"
-    }
-  }
-}
-```
-
-### 7. 複数条件（AND検索）
-```json
-GET /practice-logs-1/_search
+GET /shoplane-prod-commerce-events-01/_search
 {
   "query": {
     "bool": {
-      "must": [
-        { "term": { "tag": "demo" } },
-        { "match": { "body": "データ" } }
+      "filter": [
+        { "term": { "service": "payments-api" } },
+        { "term": { "status_code": 200 } }
       ]
     }
   }
 }
 ```
 
-### 8. いずれかの条件（OR検索）
+### 6) 直近30分
 ```json
-GET /practice-logs-1/_search
+GET /shoplane-prod-commerce-events-*/_search
 {
-  "query": {
-    "bool": {
-      "should": [
-        { "term": { "tag": "demo" } },
-        { "term": { "tag": "tutorial" } }
-      ],
-      "minimum_should_match": 1
-    }
-  }
-}
-```
-
-## 集計・分析クエリ
-
-### 9. tagごとの件数を集計
-```json
-GET /practice-logs-1/_search
-{
-  "size": 0,
-  "aggs": {
-    "tags": {
-      "terms": {
-        "field": "tag"
-      }
-    }
-  }
-}
-```
-
-### 10. ソート（titleで昇順）
-```json
-GET /practice-logs-1/_search
-{
-  "query": {
-    "match_all": {}
-  },
-  "sort": [
-    {
-      "title.keyword": {
-        "order": "asc"
-      }
-    }
-  ]
-}
-```
-
-## 実践的なクエリ例（調査向け）
-
-### A. 直近30分のデータを新しい順で確認（多インデックス横断）
-```json
-POST /practice-logs-*/_search
-{
-  "size": 20,
   "query": {
     "range": {
       "@timestamp": {
@@ -163,80 +79,187 @@ POST /practice-logs-*/_search
       }
     }
   },
-  "sort": [
-    { "@timestamp": { "order": "desc" } }
-  ]
+  "sort": [{ "@timestamp": { "order": "desc" } }],
+  "size": 20
 }
 ```
 
-### B. 複数条件の絞り込み（tag=demo かつ category=app）
+### 7) 遅延イベント抽出（response_time_ms >= 300）
 ```json
-POST /practice-logs-*/_search
+GET /shoplane-prod-commerce-events-*/_search
 {
   "query": {
-    "bool": {
-      "filter": [
-        { "term": { "tag": "demo" } },
-        { "term": { "category": "app" } }
-      ]
+    "range": {
+      "response_time_ms": { "gte": 300 }
     }
-  }
-}
-```
-
-### C. titleに特定キーワードを含むデータを検索
-```json
-POST /practice-logs-*/_search
-{
-  "query": {
-    "match": {
-      "title": "doc-10"
-    }
-  }
-}
-```
-
-### D. 特定フィールドだけ返して確認しやすくする
-```json
-POST /practice-logs-*/_search
-{
-  "_source": ["@timestamp", "title", "tag", "category"],
-  "size": 10,
-  "query": {
-    "match_all": {}
   },
-  "sort": [
-    { "@timestamp": { "order": "desc" } }
-  ]
+  "sort": [{ "response_time_ms": { "order": "desc" } }]
 }
 ```
 
-### E. categoryごとに件数集計（運用での傾向把握向け）
+## Commerce Events 集計
+
+### 8) event_type ごとの件数
 ```json
-POST /practice-logs-*/_search
+GET /shoplane-prod-commerce-events-*/_search
 {
   "size": 0,
   "aggs": {
-    "by_category": {
-      "terms": {
-        "field": "category"
+    "by_event_type": {
+      "terms": { "field": "event_type" }
+    }
+  }
+}
+```
+
+### 9) service ごとの平均応答時間
+```json
+GET /shoplane-prod-commerce-events-*/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_service": {
+      "terms": { "field": "service" },
+      "aggs": {
+        "avg_latency": { "avg": { "field": "response_time_ms" } }
       }
     }
   }
 }
 ```
 
-### F. tag × category の組み合わせを集計
+### 10) customer_tier ごとの購入金額合計
 ```json
-POST /practice-logs-*/_search
+GET /shoplane-prod-commerce-events-*/_search
+{
+  "size": 0,
+  "query": {
+    "term": { "event_type": "purchase" }
+  },
+  "aggs": {
+    "by_tier": {
+      "terms": { "field": "customer_tier" },
+      "aggs": {
+        "total_value": { "sum": { "field": "cart_value_jpy" } }
+      }
+    }
+  }
+}
+```
+
+## Trigger 別（Alias）
+
+### 11) Cart In イベント
+```json
+GET /shoplane-commerce-cart-in/_search
+{
+  "size": 20,
+  "sort": [{ "@timestamp": { "order": "desc" } }]
+}
+```
+
+### 12) Purchase イベント
+```json
+GET /shoplane-commerce-purchase/_search
+{
+  "size": 20,
+  "sort": [{ "@timestamp": { "order": "desc" } }]
+}
+```
+
+### 13) Search イベント
+```json
+GET /shoplane-commerce-search/_search
+{
+  "size": 20,
+  "sort": [{ "@timestamp": { "order": "desc" } }]
+}
+```
+
+## User Profile
+
+### 14) プロファイル一覧（10件）
+```json
+GET /shoplane-prod-user-profile-*/_search
+{
+  "size": 10,
+  "query": { "match_all": {} }
+}
+```
+
+### 15) customer_tier ごとの人数
+```json
+GET /shoplane-prod-user-profile-*/_search
 {
   "size": 0,
   "aggs": {
-    "by_tag": {
-      "terms": { "field": "tag" },
+    "by_tier": {
+      "terms": { "field": "customer_tier" }
+    }
+  }
+}
+```
+
+### 16) 非アクティブユーザー抽出
+```json
+GET /shoplane-prod-user-profile-*/_search
+{
+  "query": {
+    "term": { "is_active": false }
+  }
+}
+```
+
+## App Logs
+
+### 17) ERROR ログのみ
+```json
+GET /shoplane-prod-app-logs-*/_search
+{
+  "query": {
+    "term": { "level": "ERROR" }
+  },
+  "sort": [{ "@timestamp": { "order": "desc" } }],
+  "size": 50
+}
+```
+
+### 18) service ごとのログ件数
+```json
+GET /shoplane-prod-app-logs-*/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_service": {
+      "terms": { "field": "service" }
+    }
+  }
+}
+```
+
+## 調査テンプレート（深掘り）
+
+### 19) 障害調査: ERROR/WARN の時系列推移（5分バケット）
+```json
+GET /shoplane-prod-app-logs-*/_search
+{
+  "size": 0,
+  "query": {
+    "terms": {
+      "level": ["ERROR", "WARN"]
+    }
+  },
+  "aggs": {
+    "over_time": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "5m"
+      },
       "aggs": {
-        "by_category": {
-          "terms": { "field": "category" }
+        "by_level": {
+          "terms": {
+            "field": "level"
+          }
         }
       }
     }
@@ -244,246 +267,147 @@ POST /practice-logs-*/_search
 }
 ```
 
-### G. doc_number が存在するドキュメントだけ抽出
+### 20) 性能調査: endpoint ごとの P95 応答時間
 ```json
-POST /practice-logs-*/_search
-{
-  "query": {
-    "exists": {
-      "field": "doc_number"
-    }
-  }
-}
-```
-
-### H. 条件付き件数だけ確認（count API）
-```json
-GET /practice-logs-*/_count
-{
-  "query": {
-    "term": {
-      "tag": "kibana"
-    }
-  }
-}
-```
-
-### I. ユーザープロファイルを tier 別に集計
-```json
-GET /shoplane-prod-user-profile-*/_search
+GET /shoplane-prod-commerce-events-*/_search
 {
   "size": 0,
   "aggs": {
-    "by_tier": {
-      "terms": {
-        "field": "customer_tier"
+    "by_endpoint": {
+      "terms": { "field": "endpoint" },
+      "aggs": {
+        "p95_latency": {
+          "percentiles": {
+            "field": "response_time_ms",
+            "percents": [95]
+          }
+        }
       }
     }
   }
 }
 ```
 
-### J. アプリログで ERROR だけ確認
+### 21) 品質調査: status_code 5xx のイベント抽出
 ```json
-GET /shoplane-prod-app-logs-*/_search
+GET /shoplane-prod-commerce-events-*/_search
 {
-  "size": 50,
   "query": {
-    "term": {
-      "level": "ERROR"
+    "range": {
+      "status_code": { "gte": 500, "lt": 600 }
     }
   },
-  "sort": [
-    { "@timestamp": { "order": "desc" } }
-  ]
+  "sort": [{ "@timestamp": { "order": "desc" } }],
+  "size": 50
 }
 ```
 
-### K. トリガー別 Data view 相当の検索（purchase）
+### 22) ボトルネック調査: service 別の高遅延割合
+```json
+GET /shoplane-prod-commerce-events-*/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_service": {
+      "terms": { "field": "service" },
+      "aggs": {
+        "slow_events": {
+          "filter": {
+            "range": { "response_time_ms": { "gte": 300 } }
+          }
+        },
+        "all_events": {
+          "value_count": { "field": "doc_number" }
+        }
+      }
+    }
+  }
+}
+```
+
+### 23) ユーザー行動調査: 特定 user_id の時系列イベント
+```json
+GET /shoplane-prod-commerce-events-*/_search
+{
+  "query": {
+    "term": { "user_id": "user-0001" }
+  },
+  "_source": ["@timestamp", "event_type", "service", "status_code", "cart_value_jpy"],
+  "sort": [{ "@timestamp": { "order": "asc" } }],
+  "size": 100
+}
+```
+
+### 24) 収益調査: 直近24時間の購入件数と売上合計
 ```json
 GET /shoplane-commerce-purchase/_search
 {
-  "size": 20,
-  "sort": [
-    { "@timestamp": { "order": "desc" } }
-  ]
-}
-```
-
-## インデックス情報
-
-### 11. インデックスのマッピング確認
-```json
-GET /practice-logs-1/_mapping
-```
-
-### 12. インデックスの統計情報
-```json
-GET /practice-logs-1/_stats
-```
-
-### 13. ドキュメント件数
-```json
-GET /practice-logs-1/_count
-```
-
-## 特定IDの取得
-
-### 14. ID=1のドキュメントを取得
-```json
-GET /practice-logs-1/_doc/1
-```
-
-### 15. 複数IDを一度に取得
-```json
-GET /practice-logs-1/_mget
-{
-  "ids": ["1", "2", "3"]
-}
-```
-
-## 追加・更新クエリ
-
-### 16. 新規ドキュメントを追加（IDを自動生成）
-```json
-POST /practice-logs-1/_doc
-{
-  "title": "New Document",
-  "body": "新規追加されたドキュメントです",
-  "tag": "new"
-}
-```
-
-### 17. 指定IDでドキュメントを追加/更新（ID=4を追加、既存なら更新）
-```json
-PUT /practice-logs-1/_doc/4
-{
-  "title": "Updated Document",
-  "body": "更新されたドキュメントです",
-  "tag": "updated"
-}
-```
-
-### 18. 部分更新（ID=1のtitleのみ更新）
-```json
-POST /practice-logs-1/_update/1
-{
-  "doc": {
-    "title": "Updated Title"
-  }
-}
-```
-
-### 19. スクリプトを使った更新（ID=1のtagを"updated"に変更）
-```json
-POST /practice-logs-1/_update/1
-{
-  "script": {
-    "source": "ctx._source.tag = 'updated'"
-  }
-}
-```
-
-### 20. 条件付き更新（tagが"demo"の場合のみtitleを更新）
-```json
-POST /practice-logs-1/_update/1
-{
-  "script": {
-    "source": "if (ctx._source.tag == 'demo') { ctx._source.title = 'Conditional Update' }"
-  }
-}
-```
-
-### 21. 複数ドキュメントを一括追加（bulk）
-```json
-POST /practice-logs-1/_bulk
-{ "index": { "_id": "10" } }
-{ "title": "Bulk Doc 1", "body": "一括追加1", "tag": "bulk" }
-{ "index": { "_id": "11" } }
-{ "title": "Bulk Doc 2", "body": "一括追加2", "tag": "bulk" }
-{ "index": { "_id": "12" } }
-{ "title": "Bulk Doc 3", "body": "一括追加3", "tag": "bulk" }
-```
-
-### 22. 複数ドキュメントを一括更新（bulk）
-```json
-POST /practice-logs-1/_bulk
-{ "update": { "_id": "1" } }
-{ "doc": { "title": "Updated Title 1", "tag": "bulk-updated" } }
-{ "update": { "_id": "2" } }
-{ "doc": { "title": "Updated Title 2", "tag": "bulk-updated" } }
-```
-
-### 23. upsert（存在しない場合は追加、存在する場合は更新）
-```json
-POST /practice-logs-1/_update/5
-{
-  "doc": {
-    "title": "Upsert Document",
-    "body": "存在すれば更新、なければ追加",
-    "tag": "upsert"
+  "size": 0,
+  "query": {
+    "range": {
+      "@timestamp": { "gte": "now-24h", "lt": "now" }
+    }
   },
-  "doc_as_upsert": true
+  "aggs": {
+    "purchase_count": { "value_count": { "field": "order_id" } },
+    "total_revenue": { "sum": { "field": "cart_value_jpy" } }
+  }
 }
 ```
 
-## 削除クエリ
-
-### 24. 特定IDのドキュメントを削除（ID=1を削除）
+### 25) 顧客分析: tier × event_type のクロス集計
 ```json
-DELETE /practice-logs-1/_doc/1
-```
-
-### 25. クエリ条件に一致するドキュメントを削除（tag="demo"のドキュメントを削除）
-```json
-POST /practice-logs-1/_delete_by_query
+GET /shoplane-prod-commerce-events-*/_search
 {
-  "query": {
-    "term": {
-      "tag": "demo"
+  "size": 0,
+  "aggs": {
+    "by_tier": {
+      "terms": { "field": "customer_tier" },
+      "aggs": {
+        "by_event_type": {
+          "terms": { "field": "event_type" }
+        }
+      }
     }
   }
 }
 ```
 
-### 26. titleで検索して削除（"Test1"を含むドキュメントを削除）
+### 26) トレース調査: trace_id で commerce と app logs を突合
 ```json
-POST /practice-logs-1/_delete_by_query
+GET /shoplane-prod-commerce-events-*,shoplane-prod-app-logs-*/_search
 {
   "query": {
-    "match": {
-      "title": "Test1"
-    }
+    "term": { "trace_id": "trace-01-00001" }
+  },
+  "_source": ["@timestamp", "service", "event_type", "level", "message", "status_code"],
+  "sort": [{ "@timestamp": { "order": "asc" } }]
+}
+```
+
+## 更新・削除系（練習用）
+
+### 27) ドキュメント部分更新
+```json
+POST /shoplane-prod-commerce-events-01/_update/1
+{
+  "doc": {
+    "tag": "promotion"
   }
 }
 ```
 
-### 27. 全件削除（⚠️ 注意: インデックス内の全ドキュメントを削除）
+### 28) 条件に一致するイベント削除（注意）
 ```json
-POST /practice-logs-1/_delete_by_query
+POST /shoplane-prod-commerce-events-01/_delete_by_query
 {
   "query": {
-    "match_all": {}
+    "term": { "event_type": "search" }
   }
 }
 ```
 
-### 28. 複数IDを一度に削除
+### 29) インデックス削除（注意）
 ```json
-POST /practice-logs-1/_bulk
-{
-  "delete": { "_id": "1" }
-}
-{
-  "delete": { "_id": "2" }
-}
-{
-  "delete": { "_id": "3" }
-}
+DELETE /shoplane-prod-commerce-events-01
 ```
-
-### 29. インデックス全体を削除（⚠️ 注意: インデックスごと削除）
-```json
-DELETE /practice-logs-1
-```
-
